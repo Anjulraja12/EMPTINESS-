@@ -1,0 +1,4 @@
+import{NextResponse}from"next/server";import crypto from"crypto";
+function token(){return crypto.createHmac("sha256",process.env.ADMIN_SESSION_SECRET||"change-me").update("admin-session").digest("hex")}
+export async function POST(req:Request){const{username,password}=await req.json().catch(()=>({}));if(username!==process.env.ADMIN_USERNAME||password!==process.env.ADMIN_PASSWORD)return NextResponse.json({error:"Invalid credentials"},{status:401});const r=NextResponse.json({ok:true});r.cookies.set("rb_admin",token(),{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",maxAge:60*60*24*7});return r}
+export async function DELETE(){const r=NextResponse.json({ok:true});r.cookies.set("rb_admin","",{httpOnly:true,path:"/",maxAge:0});return r}
