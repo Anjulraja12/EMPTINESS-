@@ -1,6 +1,17 @@
-import{NextRequest,NextResponse}from"next/server";import crypto from"crypto";import{readSiteData,writeSiteData}from"../../../lib/site-store";import{SiteData}from"../../../lib/site-data";
-function valid(x:any):x is SiteData{return !!x&&typeof x==="object"&&x.profile&&typeof x.profile.name==="string"&&typeof x.profile.email==="string"&&Array.isArray(x.skills)&&Array.isArray(x.projects)&&Array.isArray(x.timeline)&&Array.isArray(x.achievements)&&Array.isArray(x.links)}
-function sessionToken(){const s=process.env.ADMIN_SESSION_SECRET;if(!s)return null;return crypto.createHmac("sha256",s).update("admin-session").digest("hex")}
-function authorized(req:NextRequest){const expected=sessionToken();return !!expected&&req.cookies.get("rb_admin")?.value===expected}
-export async function GET(){return NextResponse.json(await readSiteData(),{headers:{"Cache-Control":"no-store"}})}
-export async function POST(req:NextRequest){if(!authorized(req))return NextResponse.json({error:"Unauthorized"},{status:401});try{const body=await req.json();if(!valid(body))return NextResponse.json({error:"Invalid site data"},{status:400});await writeSiteData(body);return NextResponse.json({ok:true,data:body})}catch{return NextResponse.json({error:"Invalid request"},{status:400})}}
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { readSiteData, writeSiteData } from "../../../lib/site-store";
+import { SiteData } from "../../../lib/site-data";
+
+export const runtime = "nodejs";
+
+function valid(x: any): x is SiteData { return !!x && typeof x === "object" && x.profile && typeof x.profile.name === "string" && typeof x.profile.email === "string" && Array.isArray(x.skills) && Array.isArray(x.projects) && Array.isArray(x.timeline) && Array.isArray(x.achievements) && Array.isArray(x.links); }
+function sessionToken() { const s = process.env.ADMIN_SESSION_SECRET; if (!s) return null; return crypto.createHmac("sha256", s).update("admin-session").digest("hex"); }
+function authorized(req: NextRequest) { const expected = sessionToken(); return !!expected && req.cookies.get("rb_admin")?.value === expected; }
+
+export async function GET() { try { return NextResponse.json(await readSiteData(), { headers: { "Cache-Control": "no-store" } }); } catch { return NextResponse.json({ error: "Database unavailable" }, { status: 503 }); } }
+export async function POST(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try { const body = await req.json(); if (!valid(body)) return NextResponse.json({ error: "Invalid site data" }, { status: 400 }); await writeSiteData(body); return NextResponse.json({ ok: true, data: body }); }
+  catch { return NextResponse.json({ error: "Database save failed" }, { status: 503 }); }
+}
