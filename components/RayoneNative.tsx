@@ -18,7 +18,7 @@ type Props={state?:string;shape?:string;level?:number;onReply?:(t:string)=>void;
 const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="idle",shape="sphere",level=0,onReply,onTranscript,onStatus,onShape},ref){
  const host=useRef<HTMLDivElement>(null),stateRef=useRef(state),levelRef=useRef(level),targetRef=useRef(shape),apiRef=useRef<RayoneHandle|null>(null);
  useEffect(()=>{stateRef.current=state},[state]);useEffect(()=>{levelRef.current=level},[level]);
- useImperativeHandle(ref,()=>apiRef.current!,[]);
+ useImperativeHandle(ref,()=>({setState:s=>apiRef.current?.setState(s),setShape:x=>apiRef.current?.setShape(x),customShape:(parts,name)=>apiRef.current?.customShape(parts,name),pulse:()=>apiRef.current?.pulse(),setLevel:v=>apiRef.current?.setLevel(v),listen:async()=>{await apiRef.current?.listen()},speak:text=>apiRef.current?.speak(text),handleText:async text=>{await apiRef.current?.handleText(text)} }),[]);
 
  useEffect(()=>{
   const el=host.current;if(!el)return;
