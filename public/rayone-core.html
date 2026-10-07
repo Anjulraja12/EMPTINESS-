@@ -7,7 +7,7 @@
 <title>RAYONE Core</title>
 <!--
 RAYONE CORE — standalone particle core (final design)
-Needs: Three.js r128 (CDN below), a backend  POST /api/chat  {messages:[{role,content}]} -> {reply}
+Needs: Three.js is served locally from the installed npm dependency, a backend  POST /api/chat  {messages:[{role,content}]} -> {reply}
 Public API:  RayoneCore.setState('idle'|'listening'|'thinking'|'speaking')
              RayoneCore.setShape('human'|'heart'|'dna'|'knot'|'sphere' | any text)
              RayoneCore.customShape(parts,name)   RayoneCore.pulse()   RayoneCore.setLevel(0..1)
@@ -18,13 +18,6 @@ Helpers below the core: listen() (mic + live level + voice shape commands), spea
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;background:#050816;color:#e6ecff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
 #rayone-canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
-/* ===== DEMO CONTROLS (delete in your project) ===== */
-#demo{position:fixed;left:0;right:0;bottom:0;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));display:grid;gap:8px;max-width:560px;margin:0 auto}
-#demo .r{display:flex;gap:6px}
-#demo button{flex:1;border:1px solid rgba(34,211,238,.45);background:rgba(10,20,50,.7);color:#bfefff;border-radius:6px;padding:10px 4px;font-size:12px;cursor:pointer}
-#demo button.on{background:#22d3ee;color:#04121c}
-#demo input{flex:1;min-width:0;background:rgba(10,20,50,.7);border:1px solid rgba(34,211,238,.45);color:#e6ecff;border-radius:6px;padding:10px;font-size:15px;outline:0}
-#msg{text-align:center;font-size:12px;color:#7ddcf0;min-height:16px;letter-spacing:.1em}
 </style>
 </head>
 <body>
@@ -35,7 +28,7 @@ html,body{height:100%;background:#050816;color:#e6ecff;font-family:system-ui,-ap
  <div class="r"><button data-s="idle">Idle</button><button data-s="listening">Listening</button><button data-s="thinking">Thinking</button><button data-s="speaking">Speaking</button></div>
  <div class="r"><input id="txt" placeholder="human / heart / dna / sher banao ..."><button id="go" style="flex:none;padding:10px 14px">Go</button><button id="mic" style="flex:none;padding:10px 14px">🎙</button></div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/api/three"></script>
 <script>
 /* ============ 1) CONFIG ============ */
 const CONFIG={ENDPOINT:'/api/chat',LANG:'hi-IN'};
@@ -127,7 +120,7 @@ const SYS='You are RAYONE, a concise, warm AI assistant. Reply in the same langu
 const SHAPEP=`Convert the request into a 3D point-cloud object built from primitives. Reply with ONLY JSON, no text, no code fence: {"name":"short english name","parts":[{"t":"s","p":[x,y,z],"d":[r],"w":1}]}.
 Primitive types (t): s=sphere d=[radius]; e=ellipsoid d=[rx,ry,rz]; c=cylinder/limb from p to q with q:[x,y,z] and d=[radius]; b=box d=[hx,hy,hz]; r=torus ring in XY plane d=[ringRadius,tubeRadius]; k=cone with base centre p, pointing up, d=[baseRadius,height].
 Rules: y is up, object faces +z, whole object fits within -1.5..1.5 on each axis. Use 8 to 20 parts so the object is clearly recognisable. w = relative surface weight. If the request is not about a visible object or shape, reply {"name":"none","parts":[]}.`;
-const $=id=>document.getElementById(id);function say(t){const m=$('msg');m.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>m.textContent='',2500)}
+const $=id=>document.getElementById(id);function say(t){const m=$('msg');if(m){m.textContent=t;clearTimeout(say._t);say._t=setTimeout(()=>m.textContent='',2500)}window.parent!==window&&window.parent.postMessage({type:'rayone-event',event:'status',text:String(t)},'*')}
 function parseShape(t){try{return JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1))}catch(e){return null}}
 async function generateShape(text){say('Shape ban rahi hai...');
  try{const j=parseShape(await askAI([{role:'user',content:SHAPEP+'\n\nRequest: '+text}]));
@@ -142,7 +135,7 @@ async function handleText(text){text=text.trim();if(!text||busy)return;busy=true
  RayoneCore.setState('thinking');hist.push({role:'user',content:text});
  let reply;try{reply=await askAI([{role:'system',content:SYS},...hist]);hist.push({role:'assistant',content:reply})}
  catch(e){hist.pop();reply='AI server se connect nahi ho paya.'}
- say(reply.slice(0,90));speak(reply)}
+ say(reply.slice(0,90));window.parent!==window&&window.parent.postMessage({type:'rayone-event',event:'reply',text:reply},'*');speak(reply)}
 /* mic: live level for the core + speech recognition + instant voice shape commands */
 let aCtx=null,aStream=null;
 async function startLevel(){try{aStream=await navigator.mediaDevices.getUserMedia({audio:true});aCtx=new(window.AudioContext||window.webkitAudioContext)();const an=aCtx.createAnalyser();an.fftSize=256;aCtx.createMediaStreamSource(aStream).connect(an);const d=new Uint8Array(an.frequencyBinCount);
@@ -151,16 +144,12 @@ function stopLevel(){if(aStream)aStream.getTracks().forEach(t=>t.stop());aStream
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null;
 function listen(){if(!SR){say('Is browser mein mic support nahi hai');return}if(rec){rec.stop();return}
  let heard='';rec=new SR();rec.lang=CONFIG.LANG;rec.interimResults=true;
- rec.onstart=()=>{startLevel();RayoneCore.setState('listening');$('mic').classList.add('on')};
- rec.onresult=e=>{heard=Array.from(e.results).map(r=>r[0].transcript).join('');$('txt').value=heard;RayoneCore.setShape(heard)};
+ rec.onstart=()=>{startLevel();RayoneCore.setState('listening');const m=$('mic');if(m)m.classList.add('on');window.parent!==window&&window.parent.postMessage({type:'rayone-event',event:'listening'},'*')};
+ rec.onresult=e=>{heard=Array.from(e.results).map(r=>r[0].transcript).join('');const t=$('txt');if(t)t.value=heard;RayoneCore.setShape(heard);window.parent!==window&&window.parent.postMessage({type:'rayone-event',event:'transcript',text:heard},'*')};
  rec.onerror=e=>say('Mic: '+e.error);
- rec.onend=()=>{stopLevel();rec=null;$('mic').classList.remove('on');if(heard.trim())handleText(heard);else RayoneCore.setState('idle')};
+ rec.onend=()=>{stopLevel();rec=null;const m=$('mic');if(m)m.classList.remove('on');if(heard.trim())handleText(heard);else RayoneCore.setState('idle')};
  try{rec.start()}catch(e){rec=null}}
 
-/* ============ 4) DEMO WIRING (delete in your project) ============ */
-document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{RayoneCore.setState(b.dataset.s);document.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x===b));
- clearInterval(window._p);if(b.dataset.s==='speaking')window._p=setInterval(()=>RayoneCore.pulse(),260)});
-$('go').onclick=()=>{handleText($('txt').value);$('txt').value=''};$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')$('go').click()});$('mic').onclick=listen;
 if(!RayoneCore.isReady())say('WebGL is not available on this device');
 </script>
 </body>
