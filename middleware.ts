@@ -9,7 +9,7 @@ async function sessionToken(secret:string){
 export async function middleware(req:NextRequest){
   if(!req.nextUrl.pathname.startsWith("/admin"))return NextResponse.next();
   if(req.nextUrl.pathname==="/admin/login")return NextResponse.next();
-  const secret=process.env.ADMIN_SESSION_SECRET||"change-me";
+  const secret=process.env.ADMIN_SESSION_SECRET;if(!secret)return NextResponse.redirect(new URL("/admin/login?error=config",req.url));
   const expected=await sessionToken(secret);
   if(req.cookies.get("rb_admin")?.value!==expected)return NextResponse.redirect(new URL("/admin/login",req.url));
   return NextResponse.next();
