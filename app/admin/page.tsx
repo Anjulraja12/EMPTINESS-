@@ -19,8 +19,8 @@ export default function Admin(){
  const inspect=async()=>{if(!url)return;const r=await fetch("/api/metadata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});setPreview(await r.json())};
  const addProject=()=>{setData(d=>({...d,projects:[...d.projects,{title:preview?.title||"New project",description:preview?.description||"",url}]}));setUrl("");setPreview(null)};
  const add=(key:"skills"|"timeline"|"achievements"|"links")=>{const blank:any=key==="skills"?"New skill":{title:"New entry",description:"",...(key==="timeline"?{period:""}:{})};setData(d=>({...d,[key]:[...d[key],blank]} as SiteData))};
- const remove=(key:"projects"|"skills"|"timeline"|"achievements"|"links",i:number)=>setData(d=>({...d,[key]:d[key].filter((_:any,j:number)=>j!==i)}));
- const update=(key:"projects"|"skills"|"timeline"|"achievements"|"links",i:number,field:string,value:string)=>setData(d=>({...d,[key]:d[key].map((x:any,j:number)=>j===i?typeof x==="string"?value:{...x,[field]:value}:x)}));
+ const remove=(key:"projects"|"skills"|"timeline"|"achievements"|"links",i:number)=>{setData(d=>{const next={...d};(next[key] as any[])=next[key].filter((_:any,j:number)=>j!==i);return next;});};
+ const update=(key:"projects"|"skills"|"timeline"|"achievements"|"links",i:number,field:string,value:string)=>{setData(d=>{const next={...d};(next[key] as any[])=(next[key] as any[]).map((x:any,j:number)=>j===i?(typeof x==="string"?value:{...x,[field]:value}):x);return next;});};
  const go=(s:Section)=>{setActive(s);setMenu(false)};
  return <main className="dash">
   <aside className={"dashSide"+(menu?" open":"")}><div className="dashBrand"><div className="dashLogo">आर</div><div><b>राजा</b><small>UACC • RAYONE</small></div></div><div className="dashNav">{nav.map(([id,label,sub])=><button key={id} className={active===id?"active":""} onClick={()=>go(id)}><span>{label}</span><small>{sub}</small></button>)}</div><div className="dashSideBottom"><span className="onlineDot"/> ऑनलाइन<br/><small>सुरक्षित एडमिन सत्र</small></div></aside>
