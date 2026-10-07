@@ -1,0 +1,4 @@
+"use client";
+import {useEffect,useRef} from "react";
+type Props={state?:'idle'|'listening'|'thinking'|'speaking';shape?:string;level?:number};
+export default function RayoneCore({state='idle',shape='sphere',level=0}:Props){const host=useRef<HTMLDivElement>(null);useEffect(()=>{const iframe=host.current?.querySelector('iframe') as HTMLIFrameElement|null;if(!iframe)return;const send=()=>iframe.contentWindow?.postMessage({type:'rayone-control',state,shape,level},'*');iframe.addEventListener('load',send);send();return()=>iframe.removeEventListener('load',send)},[state,shape,level]);return <div ref={host} className="rayoneHost"><iframe title="RAYONE AI Assistant" src="/rayone-core.html"/></div>}
