@@ -76,46 +76,14 @@ export async function writeSiteData(data: SiteData) {
     return;
   }
 
-  const profileResult = await supabase.from("profile").upsert(
-    {
-      id: 1,
-      ...data.profile,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "id" },
-  );
-  if (profileResult.error) throw profileResult.error;
+  const { error } = await supabase.rpc("replace_site_data", {
+    p_profile: data.profile,
+    p_skills: data.skills,
+    p_projects: data.projects,
+    p_timeline: data.timeline,
+    p_achievements: data.achievements,
+    p_links: data.links,
+  });
 
-  const tables = [
-    ["skills", data.skills.map((name, i) => ({ name, sort_order: i }))],
-    ["projects", data.projects.map((x, i) => ({
-      title: x.title,
-      description: x.description ?? "",
-      project_url: x.url ?? null,
-      image_url: x.image ?? null,
-      sort_order: i,
-    }))],
-    ["timeline", data.timeline.map((x, i) => ({
-      title: x.title,
-      description: x.description ?? "",
-      start_date: x.period || null,
-      end_date: null,
-      sort_order: i,
-    }))],
-    ["achievements", data.achievements.map((x, i) => ({
-      title: x.title,
-      description: x.description ?? "",
-      sort_order: i,
-    }))],
-    ["links", data.links.map((x, i) => ({ label: x.label, url: x.url, sort_order: i })),
-  ] as const;
-
-  for (const [table, rows] of tables) {
-    const cleared = await supabase.from(table).delete().gte("id", 0);
-    if (cleared.error) throw cleared.error;
-    if (rows.length) {
-      const inserted = await supabase.from(table).insert(rows);
-      if (inserted.error) throw inserted.error;
-    }
-  }
+  if (error) throw error;
 }
