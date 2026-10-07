@@ -1,4 +1,7 @@
-"use client";
-import {useEffect,useRef} from "react";
-type Props={state?:'idle'|'listening'|'thinking'|'speaking';shape?:string;level?:number};
-export default function RayoneCore({state='idle',shape='sphere',level=0}:Props){const host=useRef<HTMLDivElement>(null);useEffect(()=>{const iframe=host.current?.querySelector('iframe') as HTMLIFrameElement|null;if(!iframe)return;const send=()=>iframe.contentWindow?.postMessage({type:'rayone-control',state,shape,level},'*');iframe.addEventListener('load',send);send();return()=>iframe.removeEventListener('load',send)},[state,shape,level]);return <div ref={host} className="rayoneHost"><iframe title="RAYONE AI Assistant" src="/rayone-core.html"/></div>}
+"use client";import{useEffect,useRef}from"react";
+type Props={state?:'idle'|'listening'|'thinking'|'speaking';shape?:string;level?:number;action?:{name:string;value?:any}|null;onEvent?:(e:any)=>void};
+export default function RayoneCore({state,shape,level,action,onEvent}:Props){const host=useRef<HTMLDivElement>(null);const send=(d:any)=>{const f=host.current?.querySelector('iframe') as HTMLIFrameElement|null;f?.contentWindow?.postMessage({type:'rayone-control',...d},'*')};
+useEffect(()=>{const f=host.current?.querySelector('iframe') as HTMLIFrameElement|null;if(!f)return;const ready=()=>{if(state)send({action:'state',value:state});if(shape)send({action:'shape',value:shape});if(level!==undefined)send({action:'level',value:level})};f.addEventListener('load',ready);ready();return()=>f.removeEventListener('load',ready)},[state,shape,level]);
+useEffect(()=>{if(action)send({action:action.name,value:action.value})},[action]);
+useEffect(()=>{const fn=(e:MessageEvent)=>{if(e.source===host.current?.querySelector('iframe')?.contentWindow&&e.data?.type==='rayone-event')onEvent?.(e.data)};addEventListener('message',fn);return()=>removeEventListener('message',fn)},[onEvent]);
+return <div ref={host} className="rayoneHost"><iframe title="RAYONE AI Assistant" src="/rayone-core.html"/></div>}
