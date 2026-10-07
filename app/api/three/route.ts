@@ -1,0 +1,2 @@
+import {NextResponse} from "next/server";import {readFile} from "node:fs/promises";import path from "node:path";
+export async function GET(){try{const file=await readFile(path.join(process.cwd(),"node_modules/three/build/three.min.js"),"utf8");return new NextResponse(file,{headers:{"Content-Type":"application/javascript; charset=utf-8","Cache-Control":"public, max-age=31536000, immutable"}})}catch{return NextResponse.json({error:"Three.js bundle unavailable"},{status:500})}}
