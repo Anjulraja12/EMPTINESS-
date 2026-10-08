@@ -17,12 +17,20 @@ export type RayoneHandle={
 type Props={state?:string;shape?:string;level?:number;onReply?:(t:string)=>void;onTranscript?:(t:string)=>void;onStatus?:(t:string)=>void;onShape?:(n:string)=>void;onFormed?:()=>void;onScattered?:()=>void;onMicState?:(on:boolean)=>void};
 
 const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="idle",shape="sphere",level=0,onReply,onTranscript,onStatus,onShape,onFormed,onScattered,onMicState},ref){
- const host=useRef<HTMLDivElement>(null),stateRef=useRef(state),levelRef=useRef(level),targetRef=useRef(shape),apiRef=useRef<RayoneHandle|null>(null);
+ const host=useRef<HTMLDivElement>(null),activateButton=useRef<HTMLButtonElement>(null),homeActiveRef=useRef(true),stateRef=useRef(state),levelRef=useRef(level),targetRef=useRef(shape),apiRef=useRef<RayoneHandle|null>(null);
  useEffect(()=>{if(state!=="idle")stateRef.current=state},[state]);useEffect(()=>{levelRef.current=level},[level]);
  useImperativeHandle(ref,()=>({setState:s=>apiRef.current?.setState(s),setShape:x=>apiRef.current?.setShape(x),customShape:(parts,name)=>apiRef.current?.customShape(parts,name),pulse:()=>apiRef.current?.pulse(),setLevel:v=>apiRef.current?.setLevel(v),listen:async()=>{await apiRef.current?.listen()},speak:text=>apiRef.current?.speak(text),handleText:async text=>{await apiRef.current?.handleText(text)},activate:()=>apiRef.current?.activate() }),[]);
 
  useEffect(()=>{
   const el=host.current;if(!el)return;
+  const homeSection=el.closest(".homeRayone") as HTMLElement|null;
+  let homeObserver:IntersectionObserver|null=null;
+  if(homeSection){
+   homeActiveRef.current=false;
+   if(activateButton.current){activateButton.current.style.pointerEvents="none";activateButton.current.setAttribute("aria-disabled","true")}
+   homeObserver=new IntersectionObserver(entries=>{const visible=entries[0]?.isIntersecting===true;homeActiveRef.current=visible;if(activateButton.current){activateButton.current.style.pointerEvents=visible?"auto":"none";activateButton.current.setAttribute("aria-disabled",visible?"false":"true")}if(!visible){stateRef.current="idle"}},{threshold:.35});
+   homeObserver.observe(homeSection);
+  }
   const slow=(navigator.hardwareConcurrency||4)<=4||innerWidth<700,N=slow?15000:34000;
   const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x050607,0);renderer.domElement.style.width="100%";renderer.domElement.style.height="100%";renderer.domElement.style.display="block";renderer.domElement.style.pointerEvents="none";el.appendChild(renderer.domElement);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.1,50),R=Math.random,g=()=> (R()+R()+R()-1.5)*.5;
@@ -39,7 +47,7 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
   const detect=(x:string)=>{const ws=String(x).toLowerCase().split(/[^\p{L}\p{M}]+/u);for(let i=kw.length-1;i>=0;i--)if(ws.some(w=>kw[i].includes(w)||(i===2&&(w.startsWith("insa")||w.startsWith("human")))))return i;return -1};
   const center=()=>{const i=selectedSlot>=0&&selectedSlot<names.length?selectedSlot:2;targetRef.current=names[i];targetSlot=i;geo.attributes.aTo.array.set(A[i]);geo.attributes.aTo.needsUpdate=true;if(currentSlot!==i||morph>=0)morph=0};
   const armTimeout=()=>{if(inactivityTimer)clearTimeout(inactivityTimer);inactivityTimer=setTimeout(()=>{if(stateRef.current==="thinking"){stateRef.current="idle"}},10000)};
-  const activate=()=>{center();stateRef.current="thinking";armTimeout()};
+  const activate=()=>{if(homeSection&&!homeActiveRef.current)return;center();stateRef.current="thinking";armTimeout()};
   const setShape=(x:string|number)=>{const i=typeof x==="number"?x:detect(x);if(i<0||i>=names.length)return;targetRef.current=names[i];selectedSlot=i;if(stateRef.current==="idle")return;if(i===currentSlot&&morph<0)return;targetSlot=i;geo.attributes.aTo.array.set(A[i]);geo.attributes.aTo.needsUpdate=true;morph=0};
   const resize=()=>{const w=el.clientWidth||innerWidth,h=el.clientHeight||500;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();camera.position.z=9;pts.position.set(0,0,0);pts.scale.set(1,1,1);const halfH=Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*(camera.position.z-1.5),halfW=halfH*(w/h),spread=A[7];for(let i=0;i<N;i++){spread[i*3]=(R()*2-1)*halfW*.96;spread[i*3+1]=(R()*2-1)*halfH*.94;spread[i*3+2]=(R()*2-1)*1.3}if(currentSlot===7&&morph<0){geo.attributes.position.array.set(spread);geo.attributes.position.needsUpdate=true}if(stateRef.current==="idle"&&targetSlot===7){geo.attributes.aTo.array.set(spread);geo.attributes.aTo.needsUpdate=true}};resize();addEventListener("resize",resize);
   const speak=async(text:string)=>{if(typeof speechSynthesis==="undefined"){stateRef.current="thinking";armTimeout();return}if(inactivityTimer)clearTimeout(inactivityTimer);stateRef.current="speaking";const u=new SpeechSynthesisUtterance(text);u.lang=/[\u0900-\u097F]/.test(text)?"hi-IN":"en-IN";u.onstart=()=>{stateRef.current="speaking"};u.onboundary=()=>{env=1};u.onend=()=>{stateRef.current="thinking";armTimeout()};speechSynthesis.cancel();speechSynthesis.speak(u)};
@@ -70,8 +78,8 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
   };
   apiRef.current={setState:s=>{stateRef.current=s;if(s!=="idle")center();if(s==="thinking")armTimeout();else if(s==="listening"||s==="speaking"){} else if(inactivityTimer)clearTimeout(inactivityTimer)},setShape,customShape:custom,pulse:()=>{env=1},setLevel:v=>{levelRef.current=Math.max(0,Math.min(1,v))},listen,speak,handleText,activate};
   const loop=(now:number)=>{const dt=Math.min((now-last)/1000,.05);last=now;t+=dt;const U=mat.uniforms;U.uTime.value=t;const L=stateRef.current==="listening"?levelRef.current:0;env*=.9;const sp=stateRef.current==="speaking"?Math.min(1,env):0;const voiceAmp=stateRef.current==="speaking"?sp:stateRef.current==="listening"?L:0;U.uAmp.value=voiceAmp;U.uBr.value=voiceAmp*.12;mouth+=(sp-mouth)*.4;U.uMouth.value=mouth;hum+=((currentSlot===2&&morph<0?1:0)-hum)*.1;if(morph>=0){morph+=dt/1.4;const m=Math.min(morph,1);U.uMix.value=m*m*(3-2*m);if(morph>=1){geo.attributes.position.array.set(A[targetSlot]);geo.attributes.position.needsUpdate=true;U.uMix.value=0;currentSlot=targetSlot;morph=-1;if(targetSlot!==7)onFormed?.();else onScattered?.()}}const targetIndex=stateRef.current==="idle"?7:(targetSlot===5||targetSlot===6?targetSlot:names.indexOf(targetRef.current));if(targetIndex>=0&&targetIndex!==currentSlot&&morph<0){targetSlot=targetIndex;geo.attributes.aTo.array.set(A[targetIndex]);if(targetIndex===7)onScattered?.();geo.attributes.aTo.needsUpdate=true;morph=0}pts.position.set(0,0,0);pts.rotation.set(0,0,0);pts.scale.set(1,1,1);renderer.render(scene,camera);raf=requestAnimationFrame(loop)};raf=requestAnimationFrame(loop);
-return()=>{cancelAnimationFrame(raf);removeEventListener("resize",resize);stopMic();if(inactivityTimer)clearTimeout(inactivityTimer);renderer.dispose();geo.dispose();mat.dispose();el.removeChild(renderer.domElement)};
+return()=>{homeObserver?.disconnect();cancelAnimationFrame(raf);removeEventListener("resize",resize);stopMic();if(inactivityTimer)clearTimeout(inactivityTimer);renderer.dispose();geo.dispose();mat.dispose();el.removeChild(renderer.domElement)};
  },[]);
- return <><div ref={host} className="rayoneCanvas" aria-label="RAYONE AI particle core"/><button type="button" className="rayoneActivate" aria-label="Activate RAYONE" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();apiRef.current?.activate()}} onTouchStart={(e)=>{e.stopPropagation();apiRef.current?.activate()}} onClick={(e)=>{e.preventDefault();e.stopPropagation();apiRef.current?.activate()}} /></>;;
+ return <><div ref={host} className="rayoneCanvas" aria-label="RAYONE AI particle core"/><button ref={activateButton} type="button" className="rayoneActivate" aria-label="Activate RAYONE" onPointerDown={(e)=>{e.preventDefault();e.stopPropagation();apiRef.current?.activate()}} onTouchStart={(e)=>{e.stopPropagation();apiRef.current?.activate()}} onClick={(e)=>{e.preventDefault();e.stopPropagation();apiRef.current?.activate()}} /></>;;
 });
 export default RayoneNative;
