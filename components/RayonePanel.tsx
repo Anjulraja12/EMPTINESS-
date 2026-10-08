@@ -1,7 +1,7 @@
 "use client";
 import{useRef,useState}from"react";import RayoneNative,{RayoneHandle}from"./RayoneNative";
 
-export default function RayonePanel(){
+export default function RayonePanel({onFormed,onScattered}:{onFormed?:()=>void;onScattered?:()=>void}){
  const ref=useRef<RayoneHandle>(null);
  const[state,setState]=useState("idle");
  const[controlsVisible,setControlsVisible]=useState(false);
@@ -20,8 +20,8 @@ export default function RayonePanel(){
     onReply={t=>{setReply(t);setState("speaking")}}
     onTranscript={setText}
     onStatus={setStatus}
-    onFormed={()=>setControlsVisible(true)}
-    onScattered={()=>{setControlsVisible(false);setShapeOpen(false)}}
+    onFormed={()=>{setControlsVisible(true);onFormed?.()}}
+    onScattered={()=>{setControlsVisible(false);setShapeOpen(false);onScattered?.()}}
     onMicState={setMicOn}
    />
   </div>
