@@ -14,7 +14,7 @@ export type RayoneHandle={
  activate:()=>void;
 };
 
-type Props={state?:string;shape?:string;level?:number;onReply?:(t:string)=>void;onTranscript?:(t:string)=>void;onStatus?:(t:string)=>void;onShape?:(n:string)=>void};
+type Props={state?:string;shape?:string;level?:number;onReply?:(t:string)=>void;onTranscript?:(t:string)=>void;onStatus?:(t:string)=>void;onShape?:(n:string)=>void;onFormed?:()=>void;onScattered?:()=>void};
 
 const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="idle",shape="sphere",level=0,onReply,onTranscript,onStatus,onShape},ref){
  const host=useRef<HTMLDivElement>(null),stateRef=useRef(state),levelRef=useRef(level),targetRef=useRef(shape),apiRef=useRef<RayoneHandle|null>(null);
