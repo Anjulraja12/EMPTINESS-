@@ -6,3 +6,10 @@ html:has(.rayonePage),body:has(.rayonePage){overflow:hidden;height:100%;overscro
 /* RAYONE: hard-lock the page viewport itself; internal controls remain interactive. */
 html:has(.rayonePage),body:has(.rayonePage){overflow:hidden!important;height:100%!important;max-height:100%!important;overscroll-behavior:none!important;}
 .rayonePage{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;max-height:100dvh!important;overflow:hidden!important;overscroll-behavior:none!important;}
+
+/* RAYONE positioning: fixed only on the dedicated page; scoped to its own section on Home. */
+.homeRayone{position:relative;}
+.rayoneCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+.rayoneActivate{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:200px;height:200px;padding:0;margin:0;border:0;border-radius:50%;background:transparent;pointer-events:auto;touch-action:manipulation;z-index:9999;cursor:pointer;}
+.rayonePage .rayoneCanvas{position:fixed;inset:0;width:100vw;height:100dvh;}
+.rayonePage .rayoneActivate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);}
