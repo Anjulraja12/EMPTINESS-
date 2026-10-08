@@ -35,7 +35,20 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
   const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x050607,0);renderer.domElement.style.width="100%";renderer.domElement.style.height="100%";renderer.domElement.style.display="block";renderer.domElement.style.pointerEvents="none";el.appendChild(renderer.domElement);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.1,50),R=Math.random,g=()=> (R()+R()+R()-1.5)*.5;
   const rv=()=>{const u=R()*2-1,a=R()*Math.PI*2,q=Math.sqrt(1-u*u);return[Math.cos(a)*q,u,Math.sin(a)*q]};
-  function human(){const r=R();if(r<.16){const a=R()*Math.PI*2,b=R()*2-1,rad=Math.sqrt(1-b*b),rr=.16;return[rr*rad*Math.cos(a)+g()*.008,.92+rr*b+g()*.008,rr*rad*Math.sin(a)+g()*.008]}if(r<.22){const a=R()*Math.PI*2,rad=Math.sqrt(R())*.065;return[Math.cos(a)*rad,.69+Math.sin(a)*rad,g()*.01]}if(r<.50){const a=R()*Math.PI*2,b=R()*2-1,rad=Math.sqrt(1-b*b);return[.30*rad*Math.cos(a)+g()*.012,.22+.48*b+g()*.012,.20*rad*Math.sin(a)+g()*.012]}if(r<.68){const side=R()<.5?-1:1,u=R(),a=R()*Math.PI*2,rad=Math.sqrt(R())*.075;return[side*(.31+.38*u)+Math.cos(a)*rad,.48-.62*u+Math.sin(a)*rad,.02+g()*.025]}if(r<.84){const side=R()<.5?-1:1,u=R(),a=R()*Math.PI*2,rad=Math.sqrt(R())*.10;return[side*(.17+.10*u)+Math.cos(a)*rad,-.22-.68*u+Math.sin(a)*rad,.03+g()*.03]}const side=R()<.5?-1:1,u=R(),a=R()*Math.PI*2,rad=Math.sqrt(R())*.055;return[side*(.16+.06*u)+Math.cos(a)*rad,-.70-.22*u+Math.sin(a)*rad,.02+g()*.02]}
+  function human(){
+   const sphere=(cx:number,cy:number,cz:number,rx:number,ry:number,rz:number)=>{const v=rv();return[cx+v[0]*rx,cy+v[1]*ry,cz+v[2]*rz]};
+   const cyl=(p:number[],q:number[],rad:number)=>{const a=[q[0]-p[0],q[1]-p[1],q[2]-p[2]],L=Math.hypot(...a)||1,n=a.map(v=>v/L),v=rv(),d=v[0]*n[0]+v[1]*n[1]+v[2]*n[2],w=[v[0]-d*n[0],v[1]-d*n[1],v[2]-d*n[2]],W=Math.hypot(...w)||1,u=R();return[p[0]+a[0]*u+w[0]/W*rad,p[1]+a[1]*u+w[1]/W*rad,p[2]+a[2]*u+w[2]/W*rad]};
+   const r=R();
+   if(r<.16)return sphere(0,.94,0,.16,.18,.14);
+   if(r<.19)return cyl([0,.77,0],[0,.66,0],.075);
+   if(r<.46){const u=R(),a=R()*Math.PI*2,rr=Math.sqrt(R());return[(-.30+.60*u)*.96, .20+Math.cos(a)*.43*rr, Math.sin(a)*.24*rr];}
+   if(r<.57){const side=R()<.5?-1:1,u=R();return cyl([side*.27,.48,0],[side*.62,.17,0],.075+u*.025)}
+   if(r<.67){const side=R()<.5?-1:1;return cyl([side*.62,.17,0],[side*.67,-.25,0],.065)}
+   if(r<.77){const side=R()<.5?-1:1;return cyl([side*.17,-.20,0],[side*.18,-.73,0],.115)}
+   if(r<.91){const side=R()<.5?-1:1;return cyl([side*.18,-.73,0],[side*.20,-1.18,.01],.085)}
+   const side=R()<.5?-1:1;return sphere(side*.21,-1.27,.055,.12,.055,.22);
+  }
+
   const fns=[()=>{const d=rv(),k=1.5+g()*.08;return[d[0]*k,d[1]*k,d[2]*k]},()=>{const t=R()*Math.PI*2,m=1.1+.35*Math.cos(3*t);return[m*Math.cos(2*t)*1.1+g()*.12,.7*Math.sin(3*t)+g()*.12,m*Math.sin(2*t)*1.1+g()*.12]},human,()=>{const t=R()*Math.PI*2,k=Math.pow(R(),.35)*.095;return[16*Math.pow(Math.sin(t),3)*k,(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))*k-.05,g()*.9*Math.pow(R(),.3)]},()=>{const t=(R()*2-1)*3,s=R()<.5?0:Math.PI,r=.9;return R()<.12?(()=>{const f=1-2*R();return[Math.cos(t*2)*r*f,t*.5,Math.sin(t*2)*r*f]})():[Math.cos(t*2+s)*r+g()*.08,t*.5,Math.sin(t*2+s)*r+g()*.08]}];
   const A=fns.map(f=>{const a=new Float32Array(N*3);for(let i=0;i<N;i++){const p=f();a[i*3]=p[0];a[i*3+1]=p[1];a[i*3+2]=p[2]}let cx=0,cy=0,cz=0;for(let i=0;i<N;i++){cx+=a[i*3];cy+=a[i*3+1];cz+=a[i*3+2]}cx/=N;cy/=N;cz/=N;let ex=.01;for(let i=0;i<N;i++){a[i*3]-=cx;a[i*3+1]-=cy;a[i*3+2]-=cz;ex=Math.max(ex,Math.abs(a[i*3]),Math.abs(a[i*3+1]),Math.abs(a[i*3+2]))}const s=1.6/ex;for(let i=0;i<N*3;i++)a[i]*=s;return a});A.push(new Float32Array(N*3),new Float32Array(N*3),new Float32Array(N*3));
   const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,Number(v)||0)),V=(a:any)=>[clamp(a?.[0],-3,3),clamp(a?.[1],-3,3),clamp(a?.[2],-3,3)];
