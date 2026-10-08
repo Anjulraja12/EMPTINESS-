@@ -25,7 +25,7 @@ export default function RayonePanel({onFormed,onScattered}:{onFormed?:()=>void;o
     onMicState={setMicOn}
    />
   </div>
-  <div className="rayoneControls" style={{paddingTop:65,opacity:controlsVisible?1:0,pointerEvents:controlsVisible?"auto":"none",visibility:controlsVisible?"visible":"hidden",transition:"opacity .35s ease",position:"relative",zIndex:100}}>
+  <div className="rayoneControls" style={{paddingTop:115,opacity:controlsVisible?1:0,pointerEvents:controlsVisible?"auto":"none",visibility:controlsVisible?"visible":"hidden",transition:"opacity .35s ease",position:"relative",zIndex:100}}>
    <div style={{position:"relative",display:"flex",justifyContent:"center",marginBottom:10}}>
     <button type="button" onClick={()=>setShapeOpen(v=>!v)} aria-expanded={shapeOpen} style={{minWidth:96,padding:"7px 11px",borderRadius:10,border:"1px solid rgba(110,220,255,.35)",background:"rgba(10,18,24,.82)",color:"#dff9ff",fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",cursor:"pointer"}}>
      Shape {shapeOpen?"▴":"▾"}
