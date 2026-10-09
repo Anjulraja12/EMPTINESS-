@@ -58,8 +58,9 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
   const geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.BufferAttribute(A[0].slice(),3));geo.setAttribute("aTo",new THREE.BufferAttribute(A[1].slice(),3));
   const mat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{uMix:{value:0},uTime:{value:0},uAmp:{value:1},uBr:{value:0},uMouth:{value:0},uHuman:{value:0},uSize:{value:(slow?20:24)*renderer.getPixelRatio()}},vertexShader:`attribute vec3 aTo;uniform float uMix,uTime,uAmp,uBr,uMouth,uHuman,uSize;varying float vD;varying vec3 vC;void main(){vec3 p=mix(position,aTo,uMix);float n=sin(p.x*2.+uTime)+sin(p.y*2.3+uTime*1.2)+sin(p.z*1.9+uTime*.8);float na=mix(1.,.35,uHuman);p+=normalize(p+.001)*n*.018*uAmp*na;float d=(sin(uTime*1.15+p.x*2.1)+cos(uTime*.9+p.y*1.7))*.012;if(uAmp==0.0&&d!=0.0&&uMix==0.0)p+=vec3(d,d*.7,-d*.5);float mo=uMouth*uHuman*step(abs(p.x),.24)*step(abs(p.y-.25),.07)*step(.3,p.z);p.y+=mo*(p.y>.25?.1:-.1);p*=1.+uBr;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=uSize/-mv.z;vD=smoothstep(-2.,2.,p.z);vC=mix(vec3(.05,.85,1.),vec3(.6,.3,1.),smoothstep(-1.6,1.6,p.y+sin(uTime*.5+p.x)*.4));}`,fragmentShader:`varying float vD;varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float a=pow(1.-d*2.,2.);gl_FragColor=vec4(vC*(.5+1.1*vD),a*.55);}`});
   const pts=new THREE.Points(geo,mat);scene.add(pts);
-  // Build a true bust point cloud: preserve the scanned facial surface, then add
-  // sampled neck/shoulder/chest surfaces below it so the silhouette reads as a person.
+  // Build the human from the scanned face itself. Preserve the scan's proportions
+  // and allocate samples by mesh area so eyes, nose, lips and ears aren't flattened
+  // by independently stretching the head on each axis.
   let humanLoadCancelled=false;
   new GLTFLoader().load("https://threejs.org/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb",gltf=>{
    if(humanLoadCancelled)return;
@@ -67,47 +68,60 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
    gltf.scene.updateMatrixWorld(true);
    gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;if(m.geometry?.attributes?.position)meshes.push(m)}});
    if(!meshes.length)return;
-   const samplers=meshes.map(mesh=>({mesh,sampler:new MeshSurfaceSampler(mesh).build()}));
-   const headCount=Math.floor(N*.70),raw=new Float32Array(N*3),p=new THREE.Vector3();
+   const samplers=meshes.map(mesh=>{
+    const sampler=new MeshSurfaceSampler(mesh).build();
+    const box=mesh.geometry.boundingBox|| (mesh.geometry.computeBoundingBox(),mesh.geometry.boundingBox);
+    const size=box?box.getSize(new THREE.Vector3()):new THREE.Vector3(1,1,1);
+    // Square-root weighting keeps small facial/detail meshes visible without
+    // allowing tiny components to receive the same number of points as the head.
+    const area=Math.max(.0001,2*(size.x*size.y+size.y*size.z+size.z*size.x));
+    return{mesh,sampler,weight:Math.sqrt(area)};
+   });
+   const weightTotal=samplers.reduce((sum,s)=>sum+s.weight,0);
+   const headCount=Math.floor(N*.80),raw=new Float32Array(N*3),p=new THREE.Vector3();
    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
    const head=new Float32Array(headCount*3);
    for(let i=0;i<headCount;i++){
-    const entry=samplers[(R()*samplers.length)|0];entry.sampler.sample(p);p.applyMatrix4(entry.mesh.matrixWorld);
+    let pick=R()*weightTotal,entry=samplers[0];
+    for(const s of samplers){pick-=s.weight;if(pick<=0){entry=s;break}}
+    entry.sampler.sample(p);p.applyMatrix4(entry.mesh.matrixWorld);
     head[i*3]=p.x;head[i*3+1]=p.y;head[i*3+2]=p.z;
-    minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);
+    minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);
+    minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);
+    minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);
    }
-   const cx=(minX+maxX)/2,cy=(minY+maxY)/2,cz=(minZ+maxZ)/2;
-   const sx=Math.max(.001,(maxX-minX)/2),sy=Math.max(.001,maxY-minY),sz=Math.max(.001,(maxZ-minZ)/2);
-   // The scanned head occupies the upper part of the bust, keeping face proportions.
+   const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2,sy=Math.max(.001,maxY-minY);
+   // One uniform scale preserves natural facial anatomy: no squeezed cheeks,
+   // stretched jaw, flattened nose or distorted ear placement.
+   const headScale=1.38/sy,angle=-.20,ca=Math.cos(angle),sa=Math.sin(angle);
    for(let i=0;i<headCount;i++){
-    const x=(head[i*3]-cx)/sx*.70;
-    const y=.08+(head[i*3+1]-minY)/sy*1.34;
-    const z=(head[i*3+2]-cz)/sz*.55;
-    // Turn the scan just enough to give the face a natural three-quarter view.
-    const angle=-.22,xx=x*Math.cos(angle)-z*Math.sin(angle),zz=x*Math.sin(angle)+z*Math.cos(angle);
-    raw[i*3]=xx;raw[i*3+1]=y;raw[i*3+2]=zz;
+    const x=(head[i*3]-cx)*headScale;
+    const y=.08+(head[i*3+1]-minY)*headScale;
+    const z=(head[i*3+2]-cz)*headScale;
+    raw[i*3]=x*ca-z*sa;
+    raw[i*3+1]=y;
+    raw[i*3+2]=x*sa+z*ca;
    }
-   // The remaining points lie on smooth, anatomically connected neck and shoulder/chest surfaces.
    const ellipsoid=(cx:number,cy:number,cz:number,rx:number,ry:number,rz:number)=>{
     const v=rv();return[cx+v[0]*rx,cy+v[1]*ry,cz+v[2]*rz];
    };
    for(let i=headCount;i<N;i++){
-    const u=R();
-    let q:number[];
-    if(u<.30){
-     // Neck surface rises into the jaw instead of reading as a separate cylinder.
-     q=ellipsoid(0,-.20,0,.255,.48,.27);
+    const u=R();let q:number[];
+    if(u<.24){
+     // Neck joins under the jaw; it is not a floating cylinder.
+     q=ellipsoid(0,-.22,0,.235,.43,.235);
     }else{
-     // Broad shoulder line and upper chest, sampled as one soft bust silhouette.
-     q=ellipsoid(0,-.70,-.015,1.02,.58,.48);
-     // Flatten the lower edge slightly like a portrait bust crop.
-     if(q[1]<-1.38)q[1]=-1.38+R()*.035;
+     // Continuous upper torso/shoulder silhouette beneath the scanned head.
+     q=ellipsoid(0,-.72,-.025,.91,.48,.39);
+     if(q[1]<-1.34)q[1]=-1.34+R()*.025;
     }
     raw[i*3]=q[0];raw[i*3+1]=q[1];raw[i*3+2]=q[2];
    }
-   // Center and fit the complete bust consistently without collapsing its shoulders.
-   let bx=0,by=0,bz=0;for(let i=0;i<N;i++){bx+=raw[i*3];by+=raw[i*3+1];bz+=raw[i*3+2]}bx/=N;by/=N;bz/=N;
-   let ex=.01;for(let i=0;i<N;i++){raw[i*3]-=bx;raw[i*3+1]-=by;raw[i*3+2]-=bz;ex=Math.max(ex,Math.abs(raw[i*3]),Math.abs(raw[i*3+1]),Math.abs(raw[i*3+2]))}
+   let bx=0,by=0,bz=0;
+   for(let i=0;i<N;i++){bx+=raw[i*3];by+=raw[i*3+1];bz+=raw[i*3+2]}
+   bx/=N;by/=N;bz/=N;
+   let ex=.01;
+   for(let i=0;i<N;i++){raw[i*3]-=bx;raw[i*3+1]-=by;raw[i*3+2]-=bz;ex=Math.max(ex,Math.abs(raw[i*3]),Math.abs(raw[i*3+1]),Math.abs(raw[i*3+2]))}
    const scale=1.52/ex;for(let i=0;i<N*3;i++)raw[i]*=scale;
    A[2].set(raw);
    if(targetSlot===2||currentSlot===2){geo.attributes.aTo.array.set(A[2]);geo.attributes.aTo.needsUpdate=true;if(currentSlot===2&&morph<0){geo.attributes.position.array.set(A[2]);geo.attributes.position.needsUpdate=true}}
