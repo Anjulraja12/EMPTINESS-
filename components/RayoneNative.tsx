@@ -78,7 +78,7 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
     return{mesh,sampler,weight:Math.sqrt(area)};
    });
    const weightTotal=samplers.reduce((sum,s)=>sum+s.weight,0);
-   const headCount=Math.floor(N*.80),raw=new Float32Array(N*3),p=new THREE.Vector3();
+   const headCount=Math.floor(N*.84),raw=new Float32Array(N*3),p=new THREE.Vector3();
    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
    const head=new Float32Array(headCount*3);
    for(let i=0;i<headCount;i++){
@@ -93,7 +93,7 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
    const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2,sy=Math.max(.001,maxY-minY);
    // One uniform scale preserves natural facial anatomy: no squeezed cheeks,
    // stretched jaw, flattened nose or distorted ear placement.
-   const headScale=1.38/sy,angle=-.20,ca=Math.cos(angle),sa=Math.sin(angle);
+   const headScale=1.38/sy,angle=-.72,ca=Math.cos(angle),sa=Math.sin(angle);
    for(let i=0;i<headCount;i++){
     const x=(head[i*3]-cx)*headScale;
     const y=.08+(head[i*3+1]-minY)*headScale;
@@ -112,7 +112,7 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
      q=ellipsoid(0,-.22,0,.235,.43,.235);
     }else{
      // Continuous upper torso/shoulder silhouette beneath the scanned head.
-     q=ellipsoid(0,-.72,-.025,.91,.48,.39);
+     q=ellipsoid(0,-.72,-.025,1.02,.46,.40);
      if(q[1]<-1.34)q[1]=-1.34+R()*.025;
     }
     raw[i*3]=q[0];raw[i*3+1]=q[1];raw[i*3+2]=q[2];
