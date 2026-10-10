@@ -34,7 +34,7 @@ const RayoneNative=forwardRef<RayoneHandle,Props>(function RayoneNative({state="
    homeObserver.observe(homeSection);
   }
   const slow=(navigator.hardwareConcurrency||4)<=4||innerWidth<700,N=slow?15000:34000;
-  const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x050607,0);renderer.domElement.style.width="100%";renderer.domElement.style.height="100%";renderer.domElement.style.display="block";renderer.domElement.style.pointerEvents="none";el.appendChild(renderer.domElement);
+  const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x050607,0);renderer.domElement.style.width="100%";renderer.domElement.style.height="100%";renderer.domElement.style.display="block";renderer.domElement.style.pointerEvents="auto";renderer.domElement.style.touchAction="none";renderer.domElement.style.cursor="grab";el.appendChild(renderer.domElement);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.1,50),R=Math.random,g=()=> (R()+R()+R()-1.5)*.5;
   const rv=()=>{const u=R()*2-1,a=R()*Math.PI*2,q=Math.sqrt(1-u*u);return[Math.cos(a)*q,u,Math.sin(a)*q]};
   function human(){
@@ -133,9 +133,9 @@ let currentSlot=7,targetSlot=7,selectedSlot=2,morph=-1,targetName="human",env=0,
   const center=()=>{userRotX=0;userRotY=0;const i=selectedSlot>=0&&selectedSlot<names.length?selectedSlot:2;targetRef.current=names[i];targetSlot=i;geo.attributes.aTo.array.set(A[i]);geo.attributes.aTo.needsUpdate=true;if(currentSlot!==i||morph>=0)morph=0};
   const armTimeout=()=>{if(inactivityTimer)clearTimeout(inactivityTimer);inactivityTimer=setTimeout(()=>{if(stateRef.current==="thinking"){stateRef.current="idle"}},10000)};
   const activate=()=>{if(homeSection&&!homeActiveRef.current)return;center();stateRef.current="thinking";armTimeout()};
-  const onDragStart=(e:PointerEvent)=>{if(homeSection&&!homeActiveRef.current)return;dragging=true;lastPointerX=e.clientX;lastPointerY=e.clientY;try{activateButton.current?.setPointerCapture(e.pointerId)}catch{};activate();};
+  const onDragStart=(e:PointerEvent)=>{if(homeSection&&!homeActiveRef.current)return;dragging=true;lastPointerX=e.clientX;lastPointerY=e.clientY;try{renderer.domElement.setPointerCapture(e.pointerId)}catch{};renderer.domElement.style.cursor="grabbing";activate();};
   const onDragMove=(e:PointerEvent)=>{if(!dragging)return;const dx=e.clientX-lastPointerX,dy=e.clientY-lastPointerY;lastPointerX=e.clientX;lastPointerY=e.clientY;userRotY+=dx*.009;userRotX+=dy*.009;};
-  const onDragEnd=()=>{dragging=false;};
+  const onDragEnd=()=>{dragging=false;renderer.domElement.style.cursor="grab";};
   activateButton.current?.addEventListener("pointerdown",onDragStart);
   activateButton.current?.addEventListener("pointermove",onDragMove);
   activateButton.current?.addEventListener("pointerup",onDragEnd);
